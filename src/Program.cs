@@ -20,27 +20,14 @@
 // - Minimal allocations, one static HttpClient, JsonDocument parsing (fast).
 // - Ctrl+C clean shutdown via CancellationToken.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Net.Http;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+
 #nullable disable
 
 internal sealed class Program
 {
-    // ===== Alert display mode =====
-    // Default is Simple Mode - standard detection readout
-    // set SIMPLE_MODE=0 to enable Pro mode
-    private static readonly bool SIMPLE_MODE = GetEnv("SIMPLE_MODE", "1") != "0";
 
-    // Absolute dollar-volume floor (quote currency per 1m candle).
-    private static readonly double ABSOLUTE_DOLLAR_VOLUME_MIN = double.TryParse(
-        GetEnv("ABS_VOL_MIN_USD", "2000"),
-        NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 2000d;
 
     private const string BASE_URL = "https://api.exchange.coinbase.com";
     private static readonly HttpClient http = new HttpClient
@@ -125,14 +112,7 @@ internal sealed class Program
             BaseCoins = cfg.BaseCoins?.ToArray() ?? Array.Empty<string>()
         };
 
-        // env overrides win
-        // var envSimple = Environment.GetEnvironmentVariable("SIMPLE_MODE");
-        // if (envSimple is not null) scanner.SimpleMode = envSimple != "0";
-
-        // var envAbs = Environment.GetEnvironmentVariable("ABS_VOL_MIN_USD");
-        // if (double.TryParse(envAbs, out var abs)) scanner.AbsVolumeMinUsd = abs;
-
-       return (new EffectiveConfig(scanner, marketConfig)!);
+        return (new EffectiveConfig(scanner, marketConfig)!);
     }
     private static string GetArg(string[] args, params string[] keys)
     {
@@ -153,7 +133,7 @@ internal sealed class Program
                    .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
                    .ToArray())
         { }
-    }   ;
+    }
 
 
     // private static readonly string[] COINS = new[]
@@ -196,6 +176,9 @@ internal sealed class Program
     //     "XYO-USD","YFI-USD","ZEC-USD","ZEN-USD","ZETA-USD","ZETACHAIN-USD","ZK-USD","ZORA-USD","ZRO-USD","ZRX-USD"
     // };
     private static EnvironmentConfig _environmentConfig;
+
+        // Verbose mode flag
+        private static bool VERBOSE = false;
 
 private static bool ShouldAutoStart(string[] args)
 {
@@ -247,22 +230,25 @@ private static bool IsInteractive()
     }
     private static async Task Main(string[] args)
     {
+
         _environmentConfig = new EnvironmentConfig();
+        // Check for --verbose arg
+        VERBOSE = args.Any(a => string.Equals(a, "--verbose", StringComparison.OrdinalIgnoreCase));
         var config = LoadConfigAndSelectMarket(args);
 
         // Show the effective configuration
         PrintConfigSummary(config);
 
-    // Dry-run: show config and bail (useful for CI/validation)
-    if (args.Any(a => string.Equals(a, "--dry-run", StringComparison.OrdinalIgnoreCase)))
-        return;
+        // Dry-run: show config and bail (useful for CI/validation)
+        if (args.Any(a => string.Equals(a, "--dry-run", StringComparison.OrdinalIgnoreCase)))
+            return;
 
-    // Human gate for testing
-    if (!ConfirmStartIfNeeded(args))
-    {
-        Console.WriteLine("Aborting. No scanning started.");
-        return;
-    }
+        // Human gate for testing
+        if (!ConfirmStartIfNeeded(args))
+        {
+            Console.WriteLine("Aborting. No scanning started.");
+            return;
+        }
 
         var candleInterval = config.Scanner.CandleIntervalSec;
         var lookbackCandles = config.Scanner.LookbackCandles;
@@ -307,22 +293,29 @@ private static bool IsInteractive()
 
         while (!cts.IsCancellationRequested)
         {
+            int successCount = 0;
+            int failureCount = 0;
             foreach (var pair in allCoinsToScan)
             {
                 if (cts.IsCancellationRequested) break;
 
                 try
                 {
-                    Console.WriteLine($"Scanning {pair}...");
-                    // var candles = await GetCandlesAsync(pair, CANDLE_INTERVAL, LOOKBACK_CANDLES, cts.Token);
+                    // Only print scanning message if verbose
+                    if (VERBOSE)
+                        Console.WriteLine($"Scanning {pair}...");
+
                     var candles = await GetCandlesAsync(pair, candleInterval, lookbackCandles, cts.Token);
 
                     if (candles.Count == 0)
                     {
-                        LogCoinScan(pair, null, null, null);
+                        failureCount++;
+                        if (VERBOSE)
+                            LogCoinScan(pair, null, null, null);
                         continue;
                     }
 
+                    successCount++;
                     var startPrice = candles[0].Close;
                     var endPrice = candles[^1].Close;
                     var percentChange = (endPrice - startPrice) / startPrice * 100.0;
@@ -331,10 +324,9 @@ private static bool IsInteractive()
                     var minLow = candles.Min(c => c.Low);
                     var bandWidth = (maxHigh - minLow) / endPrice * 100.0;
 
-
-                    var (b1, i1) = IsBreakoutBand(candles.TakeLast(fastN).ToList(), thrFast, volFast);
-                    var (b2, i2) = IsBreakoutBand(candles.TakeLast(medN).ToList(), thrMed, volMed);
-                    var (b3, i3) = IsBreakoutBand(candles.TakeLast(slowN).ToList(), thrSlow, volSlow);
+                    var (b1, i1) = IsBreakoutBand(candles.TakeLast(fastN).ToList(), thrFast, volFast, config.Scanner.AbsVolumeMinUsd);
+                    var (b2, i2) = IsBreakoutBand(candles.TakeLast(medN).ToList(), thrMed, volMed, config.Scanner.AbsVolumeMinUsd);
+                    var (b3, i3) = IsBreakoutBand(candles.TakeLast(slowN).ToList(), thrSlow, volSlow, config.Scanner.AbsVolumeMinUsd);
 
                     var bandDetails = new List<(string name, BandStats stats)>();
                     if (b1 && i1 is not null) bandDetails.Add(("FAST", StatsFromInfo(i1)));
@@ -351,22 +343,26 @@ private static bool IsInteractive()
                             percentChange: percentChange,
                             bandWidth: bandWidth,
                             bandDetails: bandDetails,
-                            candleIntervalSec: candleInterval);
+                            candleIntervalSec: candleInterval,
+                            scannerConfig: config.Scanner);
 
                         await SendDiscordAsync(msg);
                     }
                     else
                     {
-                        Console.WriteLine($"{pair} | Δ: {percentChange:F2}% | W: {bandWidth:F2}%");
+                        if (VERBOSE)
+                            Console.WriteLine($"{pair} | Δ: {percentChange:F2}% | W: {bandWidth:F2}%");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing {pair}: {ex.Message}");
+                    failureCount++;
+                    if (VERBOSE)
+                        Console.WriteLine($"Error processing {pair}: {ex.Message}");
                 }
             }
 
-
+            Console.WriteLine($"Cycle summary: {successCount} successful, {failureCount} failed.");
             Console.WriteLine($"Sleeping {config.Scanner.SleepSecBetweenCycles} seconds...\n");
             Console.WriteLine($"Perparing to scan {allCoinsToScan.Length} crypto pairs\n");
             try { await Task.Delay(TimeSpan.FromSeconds(config.Scanner.SleepSecBetweenCycles), cts.Token); }
@@ -438,7 +434,7 @@ private static bool IsInteractive()
     }
 
     private static (bool hit, Dictionary<string, double> info) IsBreakoutBand(
-        List<Candle> cset, double breakoutThreshold, double volumeSpikeRatio)
+        List<Candle> cset, double breakoutThreshold, double volumeSpikeRatio, double absVolumeMinUsd)
     {
         if (cset.Count < 3) return (false, null);
 
@@ -460,7 +456,7 @@ private static bool IsInteractive()
         var hit =
             lastClose > maxHigh * (1 + breakoutThreshold) &&
             lastVol > avgVol * volumeSpikeRatio &&
-            usdPerMin >= ABSOLUTE_DOLLAR_VOLUME_MIN;
+            usdPerMin >= absVolumeMinUsd;
 
         var info = new Dictionary<string, double>
         {
@@ -495,9 +491,10 @@ private static bool IsInteractive()
         double percentChange,
         double bandWidth,
         List<(string name, BandStats stats)> bandDetails,
-        int candleIntervalSec)
+        int candleIntervalSec,
+        ScannerConfig scannerConfig)
     {
-        if (SIMPLE_MODE)
+        if (scannerConfig != null && scannerConfig.SimpleMode)
         {
             var bandsStr = bandDetails.Count > 0
                 ? string.Join(", ", bandDetails.Select(b => b.name))
@@ -559,9 +556,6 @@ private static bool IsInteractive()
             Console.WriteLine($"❌ Failed to send Discord message: {ex.Message}");
         }
     }
-
-    private static string GetEnv(string key, string @default)
-        => Environment.GetEnvironmentVariable(key) ?? @default;
 
     private readonly record struct Candle(long Time, double Low, double High, double Open, double Close, double Volume);
     private readonly record struct BandStats(double OverMaxPct, double Vol, double AvgVol, double VolMult, double DollarsPerMin, int Window);

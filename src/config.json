@@ -13,7 +13,7 @@
         "thresholds": { "fast": 0.013, "medium": 0.018, "slow": 0.024 },
         "volumeSpikeRatios": { "fast": 1.3, "medium": 1.7, "slow": 2.2 }
       }
-      //,"coins": ["BTC-USD", "ETH-USD", "XRP-USD", "LTC-USD", "BCH-USD"]
+      ,"coins": []
     },
     "eu": {
       "bands": {
