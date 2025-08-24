@@ -1,5 +1,10 @@
 # Resonance.ai Breakout Scanner
 
+## Credits
+This project is based on the original work by **Metteyya** (`therealmetteyya` on Discord).
+- Discord Server: https://discord.gg/u3nQyEUk
+- Trading Guide: [#scanner-trading-guide](https://discord.com/channels/1401761858649723002/1408580997804724316)
+
 ## Project Overview
 Resonance.ai Breakout Scanner is a tool designed for crypto traders to automatically detect breakout events in digital asset prices. It scans multiple coins and markets, looking for sudden price and volume surges that may signal trading opportunities.
 
@@ -26,18 +31,18 @@ The scanner fetches recent price and volume data (candles) for each coin from Co
 4. Build and run:
    ```
    dotnet build
-   dotnet run -- --market asia
+   dotnet run -- --market us
    ```
 
 ## Configuration
 - `config.json` contains all scanner settings: which coins to scan, detection thresholds, and Discord webhook.
-- You can set environment variables like `SIMPLE_MODE`, `ABS_VOL_MIN_USD`, and `DISCORD_WEBHOOK` for further control.
+- You must set environment variable `DISCORD_WEBHOOK` for the notifications to reach your Discord server.
 - Each market can have its own coins and detection parameters.
 
 ## Usage
 - Run the scanner with command-line options:
-  - `--market <name>`: Selects which market to scan.
-  - `--config <path>`: Uses a custom config file.
+  - `--market <name>`: (Optional) Selects which market to scan, otherwise, the first one will be used.
+  - `--config <path>`: (Optional) Uses a custom config file.
   - `--verbose`: Enables detailed console output.
 - Example output:
   - When a breakout is detected, you'll see details in the console and receive a Discord alert.

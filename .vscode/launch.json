@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Console (Default)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-resonance-ai",
+      "program": "${workspaceFolder}/resonance.ai.scanner.net/src/bin/Debug/net9.0/resonance.ai.net.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}/resonance.ai.scanner.net/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": ".NET Console (US Market)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-resonance-ai",
+      "program": "${workspaceFolder}/resonance.ai.scanner.net/src/bin/Debug/net9.0/resonance.ai.net.exe",
+      "args": ["--market", "us"],
+      "cwd": "${workspaceFolder}/resonance.ai.scanner.net/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": ".NET Console (EU Market)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-resonance-ai",
+      "program": "${workspaceFolder}/resonance.ai.scanner.net/src/bin/Debug/net9.0/resonance.ai.net.exe",
+      "args": ["--market", "eu"],
+      "cwd": "${workspaceFolder}/resonance.ai.scanner.net/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": ".NET Console (Asia Market)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-resonance-ai",
+      "program": "${workspaceFolder}/resonance.ai.scanner.net/src/bin/Debug/net9.0/resonance.ai.net.exe",
+      "args": ["--market", "asia"],
+      "cwd": "${workspaceFolder}/resonance.ai.scanner.net/src",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    }
+  ]
+}
