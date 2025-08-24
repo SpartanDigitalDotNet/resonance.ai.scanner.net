@@ -1,7 +1,7 @@
 # Resonance.ai Breakout Scanner
 
 ## Credits
-This project is based on the original work by **Metteyya** (`therealmetteyya` on Discord).
+This is a .NET (C#) port of the original Python code by **Metteyya** (`therealmetteyya` on Discord).
 - Discord Server: https://discord.gg/u3nQyEUk
 - Trading Guide: [#scanner-trading-guide](https://discord.com/channels/1401761858649723002/1408580997804724316)
 
